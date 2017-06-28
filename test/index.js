@@ -89,7 +89,7 @@ test('svg', function (t) {
     fs.unlinkSync(FIXTURE)
     t.ifError(err, 'no error')
     var result = src.toString()
-    t.ok(result.indexOf('document.createElementNS("http://www.w3.org/2000/svg", "svg")' !== -1), 'created namespaced svg element')
+    t.ok(result.indexOf('document.createElementNS("http://www.w3.org/2000/svg", "svg")') !== -1, 'created namespaced svg element')
     t.end()
   })
 })
@@ -123,8 +123,8 @@ test('choo and friends', function (t) {
     fs.unlinkSync(FIXTURE)
     t.ifError(err, 'no error')
     var result = src.toString()
-    t.ok(result.indexOf('const el1 = (function () {' !== -1), 'converted el1 to a iife')
-    t.ok(result.indexOf('const el2 = (function () {' !== -1), 'converted el1 to a iife')
+    t.ok(result.indexOf('const el1 = (function () {') !== -1, 'converted el1 to a iife')
+    t.ok(result.indexOf('const el2 = (function () {') !== -1, 'converted el1 to a iife')
     t.end()
   })
 })
@@ -169,3 +169,54 @@ test('boolean attribute expression', function (t) {
     t.end()
   })
 })
+
+test('require() calls do not contain absolute paths by default', function (t) {
+  t.plan(2)
+  var src = 'const bel = require(\'bel\')\n  const el = bel`<button>boop</button>`' // eslint-disable-line
+  fs.writeFileSync(FIXTURE, src)
+  var b = browserify(FIXTURE, {
+    transform: path.join(__dirname, '..')
+  })
+  b.bundle(function (err, src) {
+    fs.unlinkSync(FIXTURE)
+    t.ifError(err, 'no error')
+    var result = src.toString()
+    var requirePaths = getMatchGroups(result, /require\(['"](.+)['"]\)/g)
+    var anyAbsolute = requirePaths.some(function (rp) {
+      return path.isAbsolute(rp)
+    })
+    t.notOk(anyAbsolute, 'no require() paths are absolute')
+    t.end()
+  })
+})
+
+test('require() calls use absolute paths if `fullPaths` option is set', function (t) {
+  t.plan(2)
+  var src = 'const bel = require(\'bel\')\n  const el = bel`<button>boop</button>`' // eslint-disable-line
+  fs.writeFileSync(FIXTURE, src)
+  var b = browserify(FIXTURE, {
+    transform: path.join(__dirname, '..'),
+    fullPaths: true
+  })
+  b.bundle(function (err, src) {
+    fs.unlinkSync(FIXTURE)
+    t.ifError(err, 'no error')
+    var result = src.toString()
+    var requirePaths = getMatchGroups(result, /require\(['"](.+)['"]\)/g)
+    var allAbsolute = requirePaths.every(function (rp) {
+      return path.isAbsolute(rp)
+    })
+    t.ok(allAbsolute, 'require() paths are absolute')
+    t.end()
+  })
+})
+
+function getMatchGroups (string, regex) {
+  var matches = []
+  while (true) {
+    var match = regex.exec(string)
+    if (!match) break
+    matches.push(match[1])
+  }
+  return matches
+}

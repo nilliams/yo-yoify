@@ -73,13 +73,13 @@ module.exports = function yoYoify (file, opts) {
     if (node.type === 'TemplateLiteral' && node.parent.tag) {
       var name = node.parent.tag.name || (node.parent.tag.object && node.parent.tag.object.name)
       if (viewVariables.indexOf(name) !== -1) {
-        processNode(node)
+        processNode(node, opts._flags)
       }
     }
   }
 }
 
-function processNode (node) {
+function processNode (node, flags) {
   var args = [ node.quasis.map(cooked) ].concat(node.expressions.map(expr))
 
   var resultArgs = []
@@ -221,8 +221,13 @@ function processNode (node) {
   if (src && src[0].src) {
     var params = resultArgs.join(',')
 
+    // Default to `require('yo-yoify/lib/appendChild.js')`, which is cross-platform
+    var acRequirePath = flags.fullPaths
+      ? path.resolve(__dirname, 'lib', 'appendChild.js').replace(/\\/g, '\\\\') // fix Windows paths
+      : path.basename(__dirname) + '/lib/appendChild.js'
+
     node.parent.update('(function () {\n      ' +
-      '\n      var ac = require(\'' + path.resolve(__dirname, 'lib', 'appendChild.js').replace(/\\/g, '\\\\') + // fix Windows paths
+      '\n      var ac = require(\'' + acRequirePath +
     '\')\n      ' + src[0].src + '\n      return ' + src[0].name + '\n    }(' + params + '))')
   }
 }
